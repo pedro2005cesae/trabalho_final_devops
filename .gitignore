@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .env
 *.log
+pdf_extract.txt
