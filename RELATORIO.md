@@ -71,7 +71,7 @@ Tag da imagem; docker ps; HTTP /health; utilizador efetivo do container:
 - Docker ps:
 CONTAINER ID   IMAGE                 COMMAND                  CREATED             STATUS         PORTS                       NAMES
 040c583384c7   natixis-support:1.0   "python -m uvicorn a…"   Less than a second ago   Up 1 second   127.0.0.1:18081->8000/tcp   tp-api
-- GET /health: {"status":"ok","service":"support-api","version":"1.0"}
+- GET /health: {"status":"ok","service":"support-api","version":"1.0","team":"support"}
 - HTTP: 200 OK
 - Utilizador efetivo: uid=1000(appuser) gid=1000(appuser)
 - Logs: "INFO: Uvicorn running on http://0.0.0.0:8000" e "GET /health HTTP/1.1" 200 OK
@@ -83,7 +83,7 @@ Resultado de docker compose config; health; teste checker -> api; contador antes
 - Health:
 NAME                       IMAGE                   COMMAND                  SERVICE   CREATED          STATUS                   PORTS
 natixis-integrador-api-1   natixis-support:local   "python -m uvicorn a…"   api       6 seconds ago   Up 4 seconds (healthy)   127.0.0.1:18080->8000/tcp
-- DNS (checker -> api): {"status":"ok","service":"support-api-integrador","version":"1.0"}
+- DNS (checker -> api): {"status":"ok","service":"support-api-integrador","version":"1.0","team":"support"}
 - Contador: antes = 2 | apos POST = 3 | apos --force-recreate = 3
 Conclusao: docker compose config --quiet terminou sem erros, o healthcheck ficou healthy e o checker resolveu o nome api. O contador nao foi perdido porque os dados ficam no volume nomeado app-data.
 
@@ -98,7 +98,7 @@ Sintoma, comandos de investigacao, causa-raiz, alteracao realizada, prova da rec
 - Causa: o incidente altera a porta da aplicacao para 8001, enquanto o healthcheck usa 127.0.0.1:8000/health e o mapeamento publica 127.0.0.1:18080 -> 8000.
 - Alteracao: docker compose up -d --force-recreate, usando novamente a configuracao base sem remover o volume.
 - Recuperacao: docker compose ps passou a mostrar o servico healthy.
-- Prova: GET /health devolveu {"status":"ok","service":"support-api-integrador","version":"1.0"}; GET /visits devolveu {"visits":3}.
+- Prova: GET /health devolveu {"status":"ok","service":"support-api-integrador","version":"1.0","team":"support"}; GET /visits devolveu {"visits":3}.
 Conclusao: a causa-raiz foi a porta incorreta aplicada pelo incidente. O servico recuperou sem remover app-data e o contador ficou preservado.
 
 ## E05 - Git (3 valores)
@@ -109,40 +109,39 @@ Branch, hashes de commits, merge e tag v1.0.0:
 - Commit a83f073: fix: acrescentar identificacao no health
 - Merge: fix/health-info integrada em main por fast-forward
 - Tag anotada: v1.0.0
-- Commit adc3b94: demo: falha controlada da assercao health
-- Commit 948b7f6: fix: restaurar assercao health apos demonstracao
-- Historico: git log --oneline --graph --decorate -6
+- Commits da demonstracao Jenkins: 55657e2 (demo: falha controlada da assercao health) e 7648e55 (fix: restaurar assercao health apos demonstracao)
+- Historico: git log --oneline --graph --decorate -8
 - Testes finais: 2 passed
 - Remoto: https://github.com/pedro2005cesae/trabalho_final_devops
-- Publicacao: push de main e fix/health-info recusado (HTTP 403; utilizador pedro2005ng sem permissao de escrita).
-Conclusao: a branch fix/health-info foi integrada em main, a tag v1.0.0 foi criada e ficaram registados os commits da falha controlada e da recuperacao.
+- Publicacao: main, fix/health-info e tag v1.0.0 publicadas no remoto origin.
+Conclusao: a branch fix/health-info foi integrada em main, as referencias foram publicadas e ficaram registados os commits da falha controlada e da recuperacao.
 
 ## E06 - Jenkins SUCCESS (4 valores)
 URL/numero do build, etapas e identificador da imagem construida:
 - Job: http://localhost:8080/job/fastapi-ci/
 - SCM: https://github.com/pedro2005cesae/trabalho_final_devops (branch */main)
 - Jenkinsfile: Jenkinsfile (raiz do repositorio)
-- URL/numero do build: ____________________________
-- Etapas executadas: Checkout | Tests | Docker Build
+- URL/numero do build: http://localhost:8080/job/fastapi-ci/15/
+- Etapas executadas: Checkout | Tests (2 passed) | Docker Build
 - Resultado: SUCCESS
-- Tag da imagem: natixis-support:ci-____
-- Identificador da imagem: ____________________________
-- Build pendente: o remoto ainda nao apresenta branches e o agente ci-python-docker nao tem Docker CLI.
-Conclusao: atualizei a configuracao do job para o repositorio e o Jenkinsfile corretos. Ainda falta disponibilizar main no remoto e o Docker CLI no agente para executar os tres stages com sucesso.
+- Tag da imagem: natixis-support:ci-15
+- Identificador da imagem: sha256:a7ddef98cfac2365794724b59dc96f73c4acffd527fde6f28184857262158028
+Conclusao: o job executou Checkout, Tests e Docker Build com sucesso. Apos corrigir o agente Jenkins para disponibilizar o Docker CLI, a imagem foi construida e inspecionada.
 
 ## E07 - Jenkins FAILURE e recuperacao (2 valores)
 Build FAILURE, etapa que falhou e excerto relevante do log; build SUCCESS apos correcao:
-- Build FAILURE: ____________________________
-- Etapa que falhou: Tests (validacao local; execucao Jenkins pendente)
+- Build FAILURE: http://localhost:8080/job/fastapi-ci/16/
+- Etapa que falhou: Tests (1 failed, 1 passed); Docker Build foi ignorado.
 - Excerto:
 assert response.json()["status"] == "offline"
 E       AssertionError: assert 'ok' == 'offline'
-- Resultado local: 1 failed, 1 passed
-- Commit da falha: adc3b94 demo: falha controlada da assercao health
-- Build SUCCESS apos correcao: ____________________________
-- Commit da correcao: 948b7f6 fix: restaurar assercao health apos demonstracao
-Conclusao: a assercao foi alterada temporariamente para offline e falhou localmente como esperado; o build Jenkins FAILURE e o SUCCESS de recuperacao ainda estao por executar.
+- Commit da falha: 55657e2 demo: falha controlada da assercao health
+- Build SUCCESS apos correcao: http://localhost:8080/job/fastapi-ci/17/
+- Resultado apos correcao: 2 passed; Docker Build SUCCESS (natixis-support:ci-17).
+- Identificador da imagem: sha256:a7ddef98cfac2365794724b59dc96f73c4acffd527fde6f28184857262158028
+- Commit da correcao: 7648e55 fix: restaurar assercao health apos demonstracao
+Conclusao: o Jenkins confirmou a falha controlada na etapa Tests e o build seguinte ficou SUCCESS depois de restaurar a assercao.
 
 ## Verificacao final
 [x] Dockerfile [x] compose.yaml [x] app.py [x] tests/ [x] Jenkinsfile
-[x] Historico Git [x] Tag v1.0.0 [x] URL remoto configurado [ ] Branch publicado [ ] Evidencias reais E06/E07
+[x] Historico Git [x] Tag v1.0.0 [x] URL remoto configurado [x] Branch publicado [x] Evidencias reais E06/E07
