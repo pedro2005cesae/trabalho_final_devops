@@ -1,6 +1,6 @@
 # Relatorio de evidencias - Trabalho Pratico Integrador 01-06
 
-Nome: ____________________________   Data: __________
+Nome: Pedro Jesus   Data: 24/11/2026
 URL do repositorio Git: ____________________________
 
 ## E01 - Ambiente (1 valor)
@@ -63,40 +63,79 @@ Comandos e versoes observadas:
     Live Restore Enabled: false
     Firewall Backend: iptables
 - Ficheiros identificados: app.py, tests/, compose.yaml, Jenkinsfile
-
+Conclusao: Docker Engine, Docker Compose e Git responderam corretamente e foram identificados os componentes do projeto.
 
 ## E02 - Dockerfile e container (3 valores)
 Tag da imagem; docker ps; HTTP /health; utilizador efetivo do container:
-
 - Tag: natixis-support:1.0
 - Docker ps:
-CONTAINER ID   IMAGE                 COMMAND                  CREATED          STATUS          PORTS                       NAMES
-916706e65803   natixis-support:1.0   "python -m uvicorn a…"   26 seconds ago   Up 25 seconds   127.0.0.1:18080->8000/tcp   tp-api
-- INFO:     172.17.0.1:36508 - "GET /health HTTP/1.1" 200 OK
-- uid=1000(appuser)
+CONTAINER ID   IMAGE                 COMMAND                  CREATED             STATUS         PORTS                       NAMES
+040c583384c7   natixis-support:1.0   "python -m uvicorn a…"   Less than a second ago   Up 1 second   127.0.0.1:18081->8000/tcp   tp-api
+- GET /health: {"status":"ok","service":"support-api","version":"1.0"}
+- HTTP: 200 OK
+- Utilizador efetivo: uid=1000(appuser) gid=1000(appuser)
+- Logs: "INFO: Uvicorn running on http://0.0.0.0:8000" e "GET /health HTTP/1.1" 200 OK
+Conclusao: a imagem natixis-support:1.0 foi criada e executada sem privilegios. Como a porta 18080 estava ocupada pelo Compose, usei 127.0.0.1:18081 para a execucao standalone.
 
 ## E03 - Compose, DNS, healthcheck e volume (4 valores)
 Resultado de docker compose config; health; teste checker -> api; contador antes/depois da recriacao:
 - config --quiet: sem erros
 - Health:
 NAME                       IMAGE                   COMMAND                  SERVICE   CREATED          STATUS                   PORTS
-natixis-integrador-api-1   natixis-support:local   "python -m uvicorn a…"   api       10 seconds ago   Up 8 seconds (healthy)   127.0.0.1:18080->8000/tcp
+natixis-integrador-api-1   natixis-support:local   "python -m uvicorn a…"   api       6 seconds ago   Up 4 seconds (healthy)   127.0.0.1:18080->8000/tcp
 - DNS (checker -> api): {"status":"ok","service":"support-api-integrador","version":"1.0"}
-- Contador: antes = 1 | apos POST = 2 | apos --force-recreate = 2
-
+- Contador: antes = 2 | apos POST = 3 | apos --force-recreate = 3
+Conclusao: docker compose config --quiet terminou sem erros, o healthcheck ficou healthy e o checker resolveu o nome api. O contador nao foi perdido porque os dados ficam no volume nomeado app-data.
 
 ## E04 - Incidente Docker (3 valores)
 Sintoma, comandos de investigacao, causa-raiz, alteracao realizada, prova da recuperacao e contador preservado:
+- Sintoma: apos aplicar incidente.yaml, o servico ficou em estado health starting/degraded e passou a ouvir na porta 8001.
+- Diagnostico:
+- docker compose -f compose.yaml -f incidente.yaml ps
+- docker compose -f compose.yaml -f incidente.yaml logs --tail 30 api
+- docker compose -f compose.yaml -f incidente.yaml config
+- Evidencia: "Uvicorn running on http://0.0.0.0:8001"
+- Causa: o incidente altera a porta da aplicacao para 8001, enquanto o healthcheck usa 127.0.0.1:8000/health e o mapeamento publica 127.0.0.1:18080 -> 8000.
+- Alteracao: docker compose up -d --force-recreate, usando novamente a configuracao base sem remover o volume.
+- Recuperacao: docker compose ps passou a mostrar o servico healthy.
+- Prova: GET /health devolveu {"status":"ok","service":"support-api-integrador","version":"1.0"}; GET /visits devolveu {"visits":3}.
+Conclusao: a causa-raiz foi a porta incorreta aplicada pelo incidente. O servico recuperou sem remover app-data e o contador ficou preservado.
 
 ## E05 - Git (3 valores)
 Branch, hashes de commits, merge e tag v1.0.0:
+- Branch principal: main
+- Branch integrada: fix/health-info
+- Commit 24e0ac6: feat: ambiente integrador funcional
+- Commit a83f073: fix: acrescentar identificacao no health
+- Merge: fix/health-info integrada em main por fast-forward
+- Tag anotada: v1.0.0
+- Commit adc3b94: demo: falha controlada da assercao health
+- Commit 948b7f6: fix: restaurar assercao health apos demonstracao
+- Historico: git log --oneline --graph --decorate -6
+- Testes finais: 2 passed
+Conclusao: a branch fix/health-info foi integrada em main, a tag v1.0.0 foi criada e ficaram registados os commits da falha controlada e da recuperacao.
 
 ## E06 - Jenkins SUCCESS (4 valores)
 URL/numero do build, etapas e identificador da imagem construida:
+- URL/numero do build: ____________________________
+- Etapas executadas: Checkout | Tests | Docker Build
+- Resultado: SUCCESS
+- Tag da imagem: natixis-support:ci-____
+- Identificador da imagem: ____________________________
+Conclusao: o Jenkins deve confirmar os tres stages com sucesso e o resultado do docker image inspect.
 
 ## E07 - Jenkins FAILURE e recuperacao (2 valores)
 Build FAILURE, etapa que falhou e excerto relevante do log; build SUCCESS apos correcao:
+- Build FAILURE: ____________________________
+- Etapa que falhou: Tests
+- Excerto:
+assert response.json()["status"] == "offline"
+E       AssertionError: assert 'ok' == 'offline'
+- Commit da falha: adc3b94 demo: falha controlada da assercao health
+- Build SUCCESS apos correcao: ____________________________
+- Commit da correcao: 948b7f6 fix: restaurar assercao health apos demonstracao
+Conclusao: a assercao foi alterada temporariamente para offline e o teste falhou como esperado; apos restauro da assercao ok, os commits e os resultados locais ficam preparados para os builds Jenkins.
 
 ## Verificacao final
-[ ] Dockerfile [ ] compose.yaml [ ] app.py [ ] tests/ [ ] Jenkinsfile
-[ ] Historico Git [ ] Tag v1.0.0 [ ] Evidencias E01-E07
+[x] Dockerfile [x] compose.yaml [x] app.py [x] tests/ [x] Jenkinsfile
+[x] Historico Git [x] Tag v1.0.0 [ ] URL remoto [ ] Evidencias reais E06/E07
