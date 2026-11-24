@@ -1,0 +1,10 @@
+.git
+.gitignore
+.venv
+__pycache__
+.pytest_cache
+.env
+*.pyc
+*.log
+evidencias/
+pdf_extract.txt

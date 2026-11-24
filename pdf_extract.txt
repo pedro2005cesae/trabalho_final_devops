@@ -1,0 +1,216 @@
+Support Eng Stream | DevOps 
+Trabalho Prático - Avaliação 
+ 
+ 
+ 
+ 
+Vitor Manuel Santos 
+ 
+ 
+ 
+ 
+1. ENQUADRAMENTO E OBJETIVOS 
+Integra uma equipa de suporte encarregue de colocar em funcionamento uma API, garantir a 
+persistência de dados, recuperar um incidente e preparar uma pipeline de integração contínua. 
+O trabalho deve ser realizado individualmente e demonstrado com evidências objetivas. 
+No final, deverás conseguir: construir e executar uma imagem, configurar serviços com Docker 
+Compose, verificar DNS/healthchecks/volumes, diagnosticar uma falha controlada, versionar uma 
+correção com Git e executar uma pipeline Jenkins com sucesso, falha e recuperação. 
+ 
+2. CONDIÇÕES DE REALIZAÇÃO 
+Pré-requisitos: 
+• Docker Engine/Desktop a executar containers Linux; Docker Compose V2; Git; terminal 
+(Bash/PowerShell); editor de texto e acesso HTTP local à porta 18080. 
+• Kit “TP_Integrador_Formandos.zip” extraído; acesso à Internet para imagens/dependências; Python 3 
+opcional no computador local (os testes podem correr no Jenkins). 
+• Repositório Git remoto acessível pelo Jenkins e Job do tipo “Pipeline from SCM”, agente Jenkins Linux 
+com label ci-python-docker, Python 3/venv, Docker CLI e acesso autorizado ao daemon. 
+ 
+Segurança: não guardar credenciais no código ou no Git; não executar “docker system prune” nem 
+“docker compose down -v”. A eliminação do volume invalida a demonstração de persistência. 
+ 
+ 
+TRABALHO PRÁTICO - AVALIAÇÃO 
+Support Eng Stream | DevOps 
+Trabalho Prático - Avaliação 
+ 
+ 
+ 
+ 
+Vitor Manuel Santos 
+ 
+ 
+3. REGRAS DE EVIDÊNCIA 
+No ficheiro RELATORIO.md existem os campos E01 a E07. Em cada campo basta incluir os comandos 
+executados, um excerto curto dos resultados e uma conclusão técnica (1–3 frases); não é necessário 
+produzir um relatório extenso. Para Jenkins, indica o número/URL do build e anexa capturas do 
+Stage View ou Console Output (ou os excertos relevantes). 
+Os ficheiros de configuração, testes, Jenkinsfile e histórico Git são a evidência principal; as capturas 
+são apenas complementares. 
+EXERCÍCIO 00 — PREPARAÇÃO E VALIDAÇÃO DO AMBIENTE 
+Cotação: 1 valores 
+• Extrai o kit, abre o terminal na raiz do projeto e observa os ficheiros existentes. Não corrijas ainda 
+incidente.yaml. 
+docker --version 
+docker compose version 
+git --version 
+docker info 
+• Preenche em E01 as versões observadas e confirma que o daemon Docker responde. Identifica no 
+relatório os ficheiros que contêm a API, os testes, o Compose e a pipeline. 
+Critério: ambiente funcional e identificação correta dos quatro componentes do projeto. 
+ 
+Support Eng Stream | DevOps 
+Trabalho Prático - Avaliação 
+ 
+ 
+ 
+ 
+Vitor Manuel Santos 
+ 
+EXERCÍCIO 01 — DOCKERFILE E EXECUÇÃO DE UM CONTAINER 
+Cotação: 3 valores 
+• Completa os cinco TODO do Dockerfile. A imagem deverá instalar requirements.txt, copiar app.py e 
+executar a aplicação com um utilizador não privilegiado e acesso de escrita a /data. 
+• Completa .dockerignore excluindo ficheiros transitórios, repositório Git, ambientes virtuais e evidências. 
+docker build -t natixis-support:1.0 . 
+docker run -d --name tp-api -p 127.0.0.1:18080:8000 natixis-support:1.0 
+docker ps 
+curl.exe http://127.0.0.1:18080/health   # Windows PowerShell 
+# ou: curl http://127.0.0.1:18080/health   (Bash) 
+docker logs --tail 15 tp-api 
+docker exec tp-api id 
+docker rm -f tp-api 
+• Valida um HTTP 200 e o JSON com status="ok". Regista em E02 a tag, as portas host/container, o 
+resultado do comando id e uma linha relevante dos logs. 
+Critérios: construção funcional (1), execução não privilegiada/.dockerignore (1), HTTP e diagnóstico básico (1). 
+EXERCÍCIO 02 — DOCKER COMPOSE, DNS E PERSISTÊNCIA 
+Cotação: 4 valores 
+• No compose.yaml, completa o healthcheck do serviço api, usando Python/urllib e o endpoint interno 
+http://127.0.0.1:8000/health; configura o checker para aguardar api em estado service_healthy. 
+docker compose config --quiet 
+docker compose up -d --build 
+docker compose ps 
+docker compose --profile diagnostico run --rm checker -fsS http://api:8000/health 
+curl.exe http://127.0.0.1:18080/visits 
+curl.exe -X POST http://127.0.0.1:18080/visits 
+curl.exe http://127.0.0.1:18080/visits 
+docker compose up -d --force-recreate 
+docker compose ps 
+curl.exe http://127.0.0.1:18080/visits 
+• Em Bash, substitui curl.exe por curl. Se a porta 18080 estiver ocupada, regista a porta alternativa sem 
+alterar o destino interno 8000. 
+• Em E03, regista a validação do Compose, o estado healthy, o teste de DNS pelo nome api e os valores do 
+contador antes/depois de recriar o container. Explica em uma frase porque o contador não foi perdido. 
+Critérios: configuração validada (1), comunicação DNS entre serviços (1), persistência do volume nomeado (1), healthcheck e dependência 
+saudável (1). 
+Support Eng Stream | DevOps 
+Trabalho Prático - Avaliação 
+ 
+ 
+ 
+ 
+Vitor Manuel Santos 
+ 
+EXERCÍCIO 03 — TROUBLESHOOTING E RECUPERAÇÃO DO SERVIÇO 
+Cotação: 3 valores 
+O ficheiro incidente.yaml contém uma alteração operacional defeituosa intencional. Aplica-a sem a 
+corrigir antecipadamente: 
+docker compose -f compose.yaml -f incidente.yaml up -d --force-recreate 
+docker compose -f compose.yaml -f incidente.yaml ps 
+docker compose -f compose.yaml -f incidente.yaml logs --tail 30 api 
+docker compose -f compose.yaml -f incidente.yaml config 
+• Identifica o sintoma, investiga o processo/porta em que a API está a escutar, compara com o 
+mapeamento e o healthcheck e formula uma causa-raiz verificável. 
+• Corrige o incidente por alteração de configuração ou regressando à configuração base; recria apenas os 
+serviços necessários, sem remover o volume. 
+docker compose up -d --force-recreate 
+docker compose ps 
+curl.exe http://127.0.0.1:18080/health 
+curl.exe http://127.0.0.1:18080/visits 
+• Em E04, escreve um mini-runbook com cinco campos: sintoma → comandos de diagnóstico → causa → 
+correção → validação. Demonstra que o contador preservou o valor anterior. 
+Critérios: diagnóstico sustentado em evidências (1), correção eficaz (1), runbook e dados preservados (1). 
+EXERCÍCIO 04 — GIT, BRANCH, MERGE E RELEASE 
+Cotação: 3 valores 
+• Inicializa o repositório (se necessário), confirma que .gitignore impede incluir .venv, .env e caches e cria 
+um commit com a aplicação funcional. 
+• Cria a branch fix/health-info. Acrescenta à resposta /health um campo "team": "support" e acrescenta 
+uma asserção correspondente ao teste test_health. Confirma que os testes continuam a passar. 
+• Integra a branch na principal, cria a tag anotada v1.0.0 e publica o histórico e a tag no remoto à tua 
+escolha. Ajusta o nome da branch principal se usares master. 
+Support Eng Stream | DevOps 
+Trabalho Prático - Avaliação 
+ 
+ 
+ 
+ 
+Vitor Manuel Santos 
+ 
+git init                       # apenas se necessario 
+git add . 
+git commit -m "feat: ambiente integrador funcional" 
+git switch -c fix/health-info 
+# editar app.py e tests/test_app.py 
+git add app.py tests/test_app.py 
+git commit -m "fix: acrescentar identificacao no health" 
+git switch main 
+git merge fix/health-info 
+git tag -a v1.0.0 -m "Release integrador 1.0.0" 
+git log --oneline --graph --decorate -6 
+git push -u origin main 
+git push origin v1.0.0 
+Se git init criar master, executa git branch -M main antes de criares a branch de correção. Configura origin com o URL remoto atribuído, sem 
+incluir credenciais nos comandos ou no repositório. 
+• Em E05, regista o nome da branch, os dois hashes principais, a confirmação do merge e a tag. 
+Critérios: commits/branch (1), merge integrado com teste atualizado (1), tag e publicação rastreável (1). 
+EXERCÍCIO 05 — JENKINS: PIPELINE DE INTEGRAÇÃO CONTÍNUA 
+Cotação: 4 valores 
+• Completa os TODO do Jenkinsfile, mantendo as três etapas Checkout, Tests e Docker Build. No agente 
+Linux ci-python-docker, cria .venv, instala requirements.txt e requirements-dev.txt, executa pytest -q e 
+constrói a imagem Docker. 
+• No build, utiliza uma tag específica de execução: natixis-support:ci-${BUILD_NUMBER}. Confirma a 
+existência da imagem com docker image inspect. Não é necessário publicar num registry nem fazer 
+deploy. 
+# Comandos a integrar na etapa Tests (agente Linux): 
+python3 -m venv .venv 
+.venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt 
+.venv/bin/python -m pytest -q 
+ 
+# Comandos a integrar na etapa Docker Build: 
+docker build -t "natixis-support:ci-${BUILD_NUMBER}" . 
+docker image inspect "natixis-support:ci-${BUILD_NUMBER}" --format '{{.Id}}'  
+• Faz commit/push do Jenkinsfile, inicia uma execução do Job e confirma SUCCESS nas três etapas. Guarda 
+o número/URL do build e o identificador da imagem em E06. 
+Critérios: Checkout a partir do Git (1), testes automatizados (1), build/inspect da imagem (1), execução SUCCESS rastreável (1). 
+Support Eng Stream | DevOps 
+Trabalho Prático - Avaliação 
+ 
+ 
+ 
+ 
+Vitor Manuel Santos 
+ 
+EXERCÍCIO 06 — FALHA CONTROLADA DA PIPELINE E RECUPERAÇÃO 
+Cotação: 2 valores 
+• Altera TEMPORARIAMENTE uma asserção do teste test_health para esperar status="offline" (a API 
+continua a devolver status="ok"). Faz commit/push e executa novamente o Jenkins. 
+• Confirma FAILURE na etapa Tests e que Docker Build não avança. Regista no E07 o número do build e o 
+excerto do log que identifica a asserção falhada. 
+• Repõe a asserção correta, faz novo commit/push e executa uma terceira vez. Confirma SUCCESS. Não 
+elimines o histórico dos builds nem os commits de demonstração. 
+Critérios: falha controlada corretamente interpretada (1), correção, novo build SUCCESS e rastreabilidade (1). 
+5. ENTREGA E VERIFICAÇÃO FINAL — 5 MIN 
+Entrega o URL do repositório remoto ou um ZIP da pasta de trabalho (incluindo .git se a entrega for 
+exclusivamente por ZIP), RELATORIO.md preenchido e as evidências de Jenkins. Não incluas .venv, 
+credenciais, ficheiros .env nem dados privados. Mantém Dockerfile, compose.yaml, incidente.yaml, 
+Jenkinsfile, app.py, tests/ e .dockerignore. 
+ 
+Antes de submeter, confirma: 
+☐ A API responde em /health e a persistência pode ser demonstrada em /visits. 
+☐ O ficheiro Compose inclui healthcheck, volume e comunicação interna por nome do serviço. 
+☐ O incidente está documentado com a respetiva causa-raiz e recuperação. 
+☐ O Git contém branch integrada, tag v1.0.0 e commits da falha/correção de testes. 
+☐ O Jenkins apresenta pelo menos um SUCCESS, um FAILURE controlado e um SUCCESS de recuperação. 
+ 
+ 
+Bom trabalho! ☺ 
